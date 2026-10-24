@@ -58,7 +58,7 @@ export function MonthlyPerformanceChart({
               formatMw(Number(value), name === 'Forecast bias'),
               name,
             ]}
-            labelFormatter={(label) => `Decision date · ${label}`}
+            labelFormatter={(label) => `Decision date: ${label}`}
             contentStyle={{
               borderRadius: 12,
               border: '1px solid var(--border)',

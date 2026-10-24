@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { DailyDetail } from './DailyDetail'
-import type { DailySummary, DayAnalysis } from '../types'
+import type { DayAnalysis } from '../types'
 
 vi.mock('recharts', () => {
   const Container = ({ children }: { children?: ReactNode }) => (
@@ -34,23 +34,11 @@ const metrics = {
   rmse_mw: 100,
 }
 
-const days: DailySummary[] = [
-  {
-    decision_date: '2026-01-10',
-    delivery_date: '2026-01-11',
-    forecast_published_at: '2026-01-10T11:30:00Z',
-    metrics,
-  },
-  {
-    decision_date: '2026-01-11',
-    delivery_date: '2026-01-12',
-    forecast_published_at: '2026-01-11T11:30:00Z',
-    metrics,
-  },
-]
-
 const day: DayAnalysis = {
-  ...days[0],
+  decision_date: '2026-01-10',
+  delivery_date: '2026-01-11',
+  forecast_published_at: '2026-01-10T11:30:00Z',
+  metrics,
   decision_cutoff: '2026-01-10T15:30:00Z',
   hourly: [
     {
@@ -70,30 +58,15 @@ const day: DayAnalysis = {
 }
 
 describe('DailyDetail', () => {
-  it('changes decision date and switches to the error explanation', async () => {
+  it('switches to the error explanation', async () => {
     const user = userEvent.setup()
-    const onDateChange = vi.fn()
-    render(
-      <DailyDetail
-        days={days}
-        selectedDate="2026-01-10"
-        onDateChange={onDateChange}
-        day={day}
-        isLoading={false}
-      />,
-    )
-
-    await user.selectOptions(
-      screen.getByLabelText(/decision date/i),
-      '2026-01-11',
-    )
-    expect(onDateChange).toHaveBeenCalledWith('2026-01-11')
+    render(<DailyDetail day={day} isLoading={false} />)
 
     await user.click(
       screen.getByRole('button', { name: /forecast error/i }),
     )
     expect(
-      screen.getByText(/positive values mean wind was over-forecast/i),
+      screen.getByText(/positive error means wind was forecast too high/i),
     ).toBeInTheDocument()
   })
 })

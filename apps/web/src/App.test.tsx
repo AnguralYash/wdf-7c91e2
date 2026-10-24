@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
@@ -9,8 +15,8 @@ vi.mock('./components/MonthlyPerformanceChart', () => ({
 }))
 
 vi.mock('./components/DailyDetail', () => ({
-  DailyDetail: ({ selectedDate }: { selectedDate: string }) => (
-    <div>Daily detail for {selectedDate}</div>
+  DailyDetail: ({ day }: { day?: { decision_date: string } }) => (
+    <div>Daily detail for {day?.decision_date}</div>
   ),
 }))
 
@@ -67,6 +73,7 @@ function renderApp() {
 }
 
 afterEach(() => {
+  cleanup()
   vi.unstubAllGlobals()
 })
 
@@ -97,8 +104,22 @@ describe('App', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: /see the wind risk before it becomes a power shortfall/i,
+        name: /wind forecast accuracy/i,
       }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/default view: january's highest-error day/i),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText(/decision date/i)).toHaveAttribute(
+      'min',
+      '2026-01-01',
+    )
+    expect(screen.getByLabelText(/decision date/i)).toHaveAttribute(
+      'max',
+      '2026-01-31',
+    )
+    expect(
+      screen.getByText(/current pilot covers this month/i),
     ).toBeInTheDocument()
     expect(
       await screen.findByText('Daily detail for 2026-01-10'),
@@ -110,6 +131,23 @@ describe('App', () => {
       '/api/v1/days/2026-01-10',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
+
+    fireEvent.change(screen.getByLabelText(/decision date/i), {
+      target: { value: '2026-01-14' },
+    })
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/days/2026-01-14',
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      ),
+    )
+
+    fireEvent.change(screen.getByLabelText(/decision date/i), {
+      target: { value: '' },
+    })
+    expect(
+      screen.getByText(/select a january decision date/i),
+    ).toBeInTheDocument()
   })
 
   it('shows a recoverable error when the API is unavailable', async () => {
@@ -133,5 +171,40 @@ describe('App', () => {
       }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+  })
+
+  it('shows a retry action when the selected day cannot be loaded', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request) => {
+        const path = String(input)
+        if (path.includes('/days/')) {
+          return Promise.resolve(
+            new Response('unavailable', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain' },
+            }),
+          )
+        }
+
+        const payload = path.includes('/metadata') ? metadata : overview
+        return Promise.resolve(
+          new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }),
+    )
+
+    renderApp()
+
+    expect(
+      await screen.findByText(/selected day could not be loaded/i),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+    expect(
+      screen.queryByText(/loading the selected day/i),
+    ).not.toBeInTheDocument()
   })
 })

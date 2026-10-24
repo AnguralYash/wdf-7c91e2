@@ -1,4 +1,5 @@
 import type { DayAnalysis, PeriodSummary, SnapshotMetadata } from './types'
+import { API_PATHS } from './config'
 
 export class ApiError extends Error {
   readonly status: number
@@ -32,12 +33,9 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 export const dashboardApi = {
   overview: (signal?: AbortSignal) =>
-    getJson<PeriodSummary>('/api/v1/overview', signal),
+    getJson<PeriodSummary>(API_PATHS.overview, signal),
   metadata: (signal?: AbortSignal) =>
-    getJson<SnapshotMetadata>('/api/v1/metadata', signal),
+    getJson<SnapshotMetadata>(API_PATHS.metadata, signal),
   day: (decisionDate: string, signal?: AbortSignal) =>
-    getJson<DayAnalysis>(
-      `/api/v1/days/${encodeURIComponent(decisionDate)}`,
-      signal,
-    ),
+    getJson<DayAnalysis>(API_PATHS.day(decisionDate), signal),
 }

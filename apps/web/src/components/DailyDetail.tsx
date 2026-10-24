@@ -1,4 +1,4 @@
-import { CalendarDays, Clock3, Info, Radio } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   Bar,
@@ -15,22 +15,26 @@ import {
   YAxis,
 } from 'recharts'
 
-import {
-  formatCompactMw,
-  formatDate,
-  formatMw,
-  formatTime,
-} from '../format'
-import type { DailySummary, DayAnalysis } from '../types'
+import { formatCompactMw, formatMw, formatTime } from '../format'
+import type { DayAnalysis } from '../types'
 
 type ChartMode = 'generation' | 'error'
 
 interface DailyDetailProps {
-  days: DailySummary[]
-  selectedDate: string
-  onDateChange: (value: string) => void
   day?: DayAnalysis
   isLoading: boolean
+}
+
+interface TooltipEntry {
+  name?: string
+  value?: number | string
+  color?: string
+}
+
+interface GenerationTooltipProps {
+  active?: boolean
+  label?: string
+  payload?: readonly TooltipEntry[]
 }
 
 function hourKey(value: string): string {
@@ -39,13 +43,37 @@ function hourKey(value: string): string {
   return date.toISOString()
 }
 
-export function DailyDetail({
-  days,
-  selectedDate,
-  onDateChange,
-  day,
-  isLoading,
-}: DailyDetailProps) {
+function GenerationTooltip({
+  active,
+  label,
+  payload,
+}: GenerationTooltipProps) {
+  if (!active || !payload?.length) return null
+
+  const actual = Number(payload.find((entry) => entry.name === 'Actual')?.value)
+  const forecast = Number(
+    payload.find((entry) => entry.name === 'Forecast')?.value,
+  )
+  if (!Number.isFinite(actual) || !Number.isFinite(forecast)) return null
+
+  return (
+    <div className="chart-tooltip">
+      <strong>{label} GMT</strong>
+      <span>
+        Actual <b>{formatMw(actual)}</b>
+      </span>
+      <span>
+        Forecast <b>{formatMw(forecast)}</b>
+      </span>
+      <span className="chart-tooltip__gap">
+        Gap <b>{formatMw(forecast - actual, true)}</b>
+      </span>
+      <small>Forecast - half-hour actual</small>
+    </div>
+  )
+}
+
+export function DailyDetail({ day, isLoading }: DailyDetailProps) {
   const [chartMode, setChartMode] = useState<ChartMode>('generation')
 
   const generationData = useMemo(() => {
@@ -71,106 +99,51 @@ export function DailyDetail({
 
   return (
     <section className="panel daily-panel" aria-labelledby="daily-title">
-      <div className="panel__header daily-panel__header">
+      <div className="panel__header chart-header">
         <div>
-          <span className="eyebrow">Decision replay</span>
-          <h2 id="daily-title">Inspect a purchasing day</h2>
+          <span className="eyebrow">Selected day</span>
+          <h2 id="daily-title">Forecast compared with actual generation</h2>
           <p>
-            See exactly which forecast was available, then compare it with the
-            delivered wind outcome.
+            The forecast is hourly. Actual generation retains its original
+            half-hour detail.
           </p>
         </div>
-        <label className="date-select">
-          <span>Decision date</span>
-          <select
-            value={selectedDate}
-            onChange={(event) => onDateChange(event.target.value)}
+        <div
+          className="segmented"
+          role="group"
+          aria-label="Daily chart view"
+        >
+          <button
+            type="button"
+            className={chartMode === 'generation' ? 'is-active' : ''}
+            aria-pressed={chartMode === 'generation'}
+            onClick={() => setChartMode('generation')}
           >
-            {days.map((summary) => (
-              <option
-                key={summary.decision_date}
-                value={summary.decision_date}
-              >
-                {formatDate(summary.decision_date)}
-              </option>
-            ))}
-          </select>
-        </label>
+            Generation
+          </button>
+          <button
+            type="button"
+            className={chartMode === 'error' ? 'is-active' : ''}
+            aria-pressed={chartMode === 'error'}
+            onClick={() => setChartMode('error')}
+          >
+            Forecast error
+          </button>
+        </div>
       </div>
 
       {isLoading || !day ? (
-        <div className="chart-loading" role="status">
-          Loading decision-day analysis…
+        <div className="content-loading" role="status">
+          Loading the selected day...
         </div>
       ) : (
         <>
-          <div className="decision-facts">
-            <div>
-              <CalendarDays aria-hidden="true" />
-              <span>
-                <small>Delivery day</small>
-                <strong>{formatDate(day.delivery_date)}</strong>
-              </span>
-            </div>
-            <div>
-              <Clock3 aria-hidden="true" />
-              <span>
-                <small>Decision cutoff</small>
-                <strong>{formatTime(day.decision_cutoff)} GMT</strong>
-              </span>
-            </div>
-            <div>
-              <Radio aria-hidden="true" />
-              <span>
-                <small>Forecast published</small>
-                <strong>{formatTime(day.forecast_published_at)} GMT</strong>
-              </span>
-            </div>
-          </div>
-
-          <div className="daily-metrics">
-            <span>
-              Typical miss <strong>{formatMw(day.metrics.mae_mw)}</strong>
-            </span>
-            <span>
-              Bias{' '}
-              <strong className={day.metrics.bias_mw >= 0 ? 'risk' : ''}>
-                {formatMw(day.metrics.bias_mw, true)}
-              </strong>
-            </span>
-            <span>
-              Large-miss score{' '}
-              <strong>{formatMw(day.metrics.rmse_mw)}</strong>
-            </span>
-          </div>
-
-          <div className="chart-toolbar">
-            <div className="segmented" aria-label="Daily chart view">
-              <button
-                type="button"
-                className={chartMode === 'generation' ? 'is-active' : ''}
-                aria-pressed={chartMode === 'generation'}
-                onClick={() => setChartMode('generation')}
-              >
-                Generation
-              </button>
-              <button
-                type="button"
-                className={chartMode === 'error' ? 'is-active' : ''}
-                aria-pressed={chartMode === 'error'}
-                onClick={() => setChartMode('error')}
-              >
-                Forecast error
-              </button>
-            </div>
-            <p>
-              <Info aria-hidden="true" />
-              {chartMode === 'generation'
-                ? 'Actuals retain their original half-hour detail.'
-                : 'Positive values mean wind was over-forecast.'}
-            </p>
-          </div>
-
+          <p className="chart-note">
+            <Info aria-hidden="true" />
+            {chartMode === 'generation'
+              ? 'Compare the forecast line with the delivered wind line.'
+              : 'Positive error means wind was forecast too high.'}
+          </p>
           <div
             className="chart daily-chart"
             role="img"
@@ -180,7 +153,7 @@ export function DailyDetail({
                 : 'Hourly wind forecast error during the delivery day'
             }
           >
-            <ResponsiveContainer width="100%" height={360}>
+            <ResponsiveContainer width="100%" height={350}>
               {chartMode === 'generation' ? (
                 <LineChart
                   data={generationData}
@@ -199,22 +172,11 @@ export function DailyDetail({
                     tickFormatter={formatCompactMw}
                     width={48}
                   />
-                  <Tooltip
-                    formatter={(value, name) => [
-                      formatMw(Number(value)),
-                      name,
-                    ]}
-                    labelFormatter={(label) => `${label} GMT`}
-                    contentStyle={{
-                      borderRadius: 12,
-                      border: '1px solid var(--border)',
-                      boxShadow: 'var(--shadow-lg)',
-                    }}
-                  />
+                  <Tooltip content={<GenerationTooltip />} />
                   <Legend iconType="circle" />
                   <Line
                     dataKey="forecast"
-                    name="Hourly forecast"
+                    name="Forecast"
                     type="stepAfter"
                     stroke="var(--amber-strong)"
                     strokeWidth={3}
@@ -222,7 +184,7 @@ export function DailyDetail({
                   />
                   <Line
                     dataKey="actual"
-                    name="Half-hour actual"
+                    name="Actual"
                     type="monotone"
                     stroke="var(--teal)"
                     strokeWidth={3}
@@ -253,11 +215,6 @@ export function DailyDetail({
                       'Forecast error',
                     ]}
                     labelFormatter={(label) => `${label} GMT`}
-                    contentStyle={{
-                      borderRadius: 12,
-                      border: '1px solid var(--border)',
-                      boxShadow: 'var(--shadow-lg)',
-                    }}
                   />
                   <ReferenceLine y={0} stroke="var(--text-subtle)" />
                   <Bar
