@@ -1,5 +1,5 @@
 [project]
-name = "wind-decision-api"
+name = "wind-decision"
 version = "0.1.0"
 description = "Elexon wind forecast accuracy pipeline and API"
 readme = "README.md"
