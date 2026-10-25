@@ -88,3 +88,24 @@ class AnalysisSnapshot(DomainModel):
     assumptions: tuple[str, ...]
     overview: PeriodSummary
     days: tuple[DayAnalysis, ...]
+
+
+class DataCoverage(DomainModel):
+    decision_days: int = Field(ge=1)
+    hourly_comparisons: int = Field(ge=1)
+    half_hour_actuals: int = Field(ge=1)
+
+
+class SnapshotMetadata(DomainModel):
+    generated_at: datetime
+    timezone: Literal["GMT"]
+    decision_cutoff_local: Literal["15:30"]
+    sources: DataSources
+    assumptions: tuple[str, ...]
+    coverage: DataCoverage
+
+
+class HealthResponse(DomainModel):
+    status: Literal["ok"]
+    snapshot_generated_at: datetime
+    decision_days: int = Field(ge=1)

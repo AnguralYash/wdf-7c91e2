@@ -1,0 +1,19 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+    environment:
+      CORS_ALLOW_ORIGINS: http://localhost:8080
+    ports:
+      - "8000:8000"
+    init: true
+
+  web:
+    build:
+      context: ./apps/web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    init: true
