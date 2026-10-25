@@ -8,7 +8,7 @@
     "backend": {
       "root": "apps/api",
       "framework": "fastapi",
-      "entrypoint": "wind_decision.api:app"
+      "entrypoint": "main:app"
     }
   },
   "rewrites": [
