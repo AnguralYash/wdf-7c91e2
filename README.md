@@ -10,7 +10,7 @@ and direction of forecast errors.
 
 ## Live application
 
-The public Vercel URL will be added after deployment.
+https://wdf-7c91e2.vercel.app
 
 ## What the product shows
 
